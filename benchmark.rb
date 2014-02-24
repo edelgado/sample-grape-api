@@ -31,12 +31,17 @@ puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total 
 puts "\n"
 
 (uuids).each do |n|
+  response = nil
+  url = "http://0.0.0.0:9292/orders/" + n
+  uri = URI.parse(url)
   time = Benchmark.realtime do
     request = Net::HTTP::Get.new(uri.request_uri)
-    http.request(request)
+    response = http.request(request)
   end
-  puts "#{url} - #{n} : #{time}s"
+  
   total += time
+  order = JSON.parse(response.body)
+  puts "#{url} - #{order['uuid']} : #{time}s"
 end
 puts '=' * url.length
 puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(6)} reqs/sec."
