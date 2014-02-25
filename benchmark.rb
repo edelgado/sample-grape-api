@@ -21,7 +21,7 @@ uuids = []
     request.set_form_data({"item_name" => "Item #{n}", "quantity" => n, "price" => n * 10})
     response = http.request(request)
   end  
-  puts "#{url} - #{n} : #{time}s"
+  puts "POST #{url} - #{n} : #{time}s"
   total += time
   order = JSON.parse(response.body)
   uuids.push(order['uuid'])
@@ -41,7 +41,7 @@ puts "\n"
   
   total += time
   order = JSON.parse(response.body)
-  puts "#{url} - #{order['uuid']} : #{time}s"
+  puts "GET #{url} - #{order['uuid']} : #{time}s"
 end
 puts '=' * url.length
 puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(6)} reqs/sec."
