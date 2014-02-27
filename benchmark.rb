@@ -1,48 +1,96 @@
 require 'benchmark'
-require 'net/http'
-require 'uri'
 require 'json'
+require 'typhoeus'
 require 'pry'
 
-numtimes = 1000
-url = "http://0.0.0.0:9292/orders"
+numtimes = 10 # How many reads and writes?
 
-total = 0
-puts url
+# =================== POST Benchmark ====================
+hydra = Typhoeus::Hydra.hydra # A hundred serpents is better than one
+total = 0 # Total time (updates after each request)
+url = "http://0.0.0.0:9292/orders"
+uuids = [] # UUIDs of newly created records
 puts '=' * url.length
-uri = URI.parse(url)
-http = Net::HTTP.new(uri.host, uri.port)
-uuids = []
+puts url
 
 (1..numtimes.to_i).each do |n|
-  response = nil
-  time = Benchmark.realtime do
-    request = Net::HTTP::Post.new(uri.request_uri)
-    request.set_form_data({"item_name" => "Item #{n}", "quantity" => n, "price" => n * 10})
-    response = http.request(request)
-  end  
-  puts "POST #{url} - #{n} : #{time}s"
-  total += time
-  order = JSON.parse(response.body)
-  uuids.push(order['uuid'])
+
+  # Compose the request
+  request = Typhoeus::Request.new(
+    url,
+    method: :post,
+    body: {"item_name" => "Item #{n}", "quantity" => n, "price" => n * 10}
+  )
+
+  # Request callbacks
+  request.on_complete do |response|
+    if response.success?
+      # hell yeah
+        puts "POST #{url} - #{n}: #{(response.total_time - total).round(4)}s"
+        total = response.total_time
+        order = JSON.parse(response.body)
+        uuids.push(order['uuid'])
+    elsif response.timed_out?
+      # aw hell no
+      puts "Got a time out"
+    elsif response.code == 0
+      # Could not get an http response, something's wrong.
+      puts "Could not get an HTTP response, message was: #{response.return_message}"
+    else
+      # Received a non-successful http response.
+      puts "HTTP request failed: #{response.code.to_s}"
+    end
+  end
+  # Queue the request
+  hydra.queue(request);
+  # binding.pry
 end
+
+hydra.run # Release the Hydra!
+
+# binding.pry
 puts '=' * url.length
-puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(6)} reqs/sec."
+puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(4)} reqs/sec."
 puts "\n"
 
+
+# =================== GET Benchmark ====================
+hydra = Typhoeus::Hydra.hydra # A hundred serpents is better than one
+total = 0 # Reset the total time counter
+
 (uuids).each do |n|
-  response = nil
-  url = "http://0.0.0.0:9292/orders/" + n
-  uri = URI.parse(url)
-  time = Benchmark.realtime do
-    request = Net::HTTP::Get.new(uri.request_uri)
-    response = http.request(request)
+
+  # Compose the request
+  request = Typhoeus::Request.new(
+    url + '/' + n,
+    method: :get
+  )
+
+  # Request callbacks
+  request.on_complete do |response|
+    if response.success?
+      # hell yeah
+        order = JSON.parse(response.body)
+        puts "GET #{url} - #{order['uuid']}: #{(response.total_time - total).round(4)}s"
+        total = response.total_time
+    elsif response.timed_out?
+      # aw hell no
+      puts "Got a time out"
+    elsif response.code == 0
+      # Could not get an http response, something's wrong.
+      puts "Could not get an HTTP response, message was: #{response.return_message}"
+    else
+      # Received a non-successful http response.
+      puts "HTTP request failed: #{response.code.to_s}"
+    end
   end
-  
-  total += time
-  order = JSON.parse(response.body)
-  puts "GET #{url} - #{order['uuid']} : #{time}s"
+
+  # Queue the request
+  hydra.queue(request);
 end
+
+hydra.run # Release the Hydra!
+
 puts '=' * url.length
-puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(6)} reqs/sec."
+puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(4)} reqs/sec."
 puts "\n"
