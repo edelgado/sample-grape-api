@@ -3,7 +3,7 @@ require 'json'
 require 'typhoeus'
 require 'pry'
 
-numtimes = 30 # How many reads and writes?
+numtimes = 100 # How many reads and writes?
 url = "http://0.0.0.0:9292/orders"
 
 # =================== POST Benchmark ====================
