@@ -7,4 +7,4 @@ Simple Grape API to demonstrate Grape
 bundle exec redis-server
 
 - start web server
-bundle exec puma
+bundle exec puma -w 3
