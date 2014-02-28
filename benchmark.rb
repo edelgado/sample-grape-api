@@ -3,15 +3,12 @@ require 'json'
 require 'typhoeus'
 require 'pry'
 
-numtimes = 1000 # How many reads and writes?
+numtimes = 100 # How many reads and writes?
 # binding.pry
 
 # =================== POST Benchmark ====================
-hydra = Typhoeus::Hydra.hydra # A hundred serpents is better than one
-max_hydra_batch = 10 # Hydra batch size
-queue_size = 0 
+hydra = Typhoeus::Hydra.new(max_concurrency: 2) # A hundred serpents is better than one
 total = 0            # Reset the total time counter
-batch_total_time = 0 # Reset the Hydra batch time counter
 
 url = "http://0.0.0.0:9292/orders"
 uuids = [] # UUIDs of newly created records
@@ -31,8 +28,8 @@ puts url
   request.on_complete do |response|
     if response.success?
       # hell yeah
-        puts "POST #{url} - #{n}: #{(response.total_time - batch_total_time).round(6)}s"
-        batch_total_time = response.total_time
+        puts "POST #{url} - #{n}: #{(response.total_time).round(6)}s"
+        total += response.total_time
         order = JSON.parse(response.body)
         uuids.push(order['uuid'])
     elsif response.timed_out?
@@ -49,25 +46,19 @@ puts url
 
   # Queue the request
   hydra.queue(request);
-  queue_size += 1
-  if queue_size == max_hydra_batch
-    queue_size = 0
-    batch_total_time = 0
-    total += batch_total_time
-    hydra.run # Release the Hydra!
-  end
 end
 
-# binding.pry
+hydra.run # Release the Hydra!
+
+#binding.pry
 puts '=' * url.length
 puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(4)} reqs/sec."
 puts "\n"
 
 
 # =================== GET Benchmark ====================
-hydra = Typhoeus::Hydra.hydra # A hundred serpents is better than one
+hydra = Typhoeus::Hydra.new(max_concurrency: 2) # A hundred serpents is better than one
 total = 0            # Reset the total time counter
-batch_total_time = 0 # Reset the Hydra batch time counter
 
 (uuids).each do |n|
 
@@ -82,8 +73,8 @@ batch_total_time = 0 # Reset the Hydra batch time counter
     if response.success?
       # hell yeah
         order = JSON.parse(response.body)
-        puts "GET #{url} - #{order['uuid']}: #{(response.total_time - batch_total_time).round(6)}s"
-        batch_total_time = response.total_time
+        puts "GET #{url} - #{order['uuid']}: #{(response.total_time).round(6)}s"
+        total += response.total_time
     elsif response.timed_out?
       # aw hell no
       puts "Got a time out"
@@ -98,14 +89,9 @@ batch_total_time = 0 # Reset the Hydra batch time counter
 
   # Queue the request
   hydra.queue(request);
-  queue_size += 1
-  if queue_size == max_hydra_batch
-    queue_size = 0
-    batch_total_time = 0
-    total += batch_total_time
-    hydra.run # Release the Hydra!
-  end
 end
+
+hydra.run # Release the Hydra!
 
 puts '=' * url.length
 puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(4)} reqs/sec."
