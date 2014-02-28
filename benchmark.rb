@@ -3,7 +3,15 @@ require 'json'
 require 'typhoeus'
 require 'pry'
 
-numtimes = 1000 # How many reads and writes?
+def separate_comma(number)
+  whole, decimal = number.to_s.split(".")
+  whole_with_commas = whole.chars.to_a.reverse.each_slice(3).map(&:join).join(",").reverse
+  [whole_with_commas, decimal].compact.join(".")
+end
+
+puts "How many API requests should I do?"
+numtimes = gets # How many reads and writes?
+numtimes.chomp
 url = "http://0.0.0.0:9292/orders"
 
 # =================== POST Benchmark ====================
@@ -34,7 +42,8 @@ end
 
 # binding.pry
 puts '=' * url.length
-puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(4)} reqs/sec."
+avg = (total / numtimes.to_i).round(4)
+puts "Average for #{url} : #{avg}s or #{1 / avg} reqs/sec or #{separate_comma((86400 / avg).round(4))} reqs/day"
 puts "\n"
 
 
@@ -61,5 +70,6 @@ total = 0 # Reset the total time counter
 end
 
 puts '=' * url.length
-puts "Average for #{url} : #{(total / numtimes.to_i).round(4)}s or #{1 / (total / numtimes.to_i).round(4)} reqs/sec."
+avg = (total / numtimes.to_i).round(4)
+puts "Average for #{url} : #{avg}s or #{1 / avg} reqs/sec or #{separate_comma((86400 / avg).round(4))} reqs/day"
 puts "\n"
